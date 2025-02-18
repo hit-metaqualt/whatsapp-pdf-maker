@@ -6,13 +6,12 @@ const { sendMessage, processReceivedMessages } = require("../controllers/sendMes
 
 
 const router = express.Router();
-// router.post("/whatsapp-webhook", processIncomingMessage); 
 router.post("/whatsapp-webhook", sendMessage); 
 router.get("/whatsapp-received", processReceivedMessages); 
 
 
 
-
+// https://whatsapp-pdf-maker.onrender.com/api/admin/whatsapp-received
 
 
 

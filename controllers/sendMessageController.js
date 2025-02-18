@@ -7,38 +7,103 @@ const client = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
+const mongoose = require("mongoose");
+const axios = require("axios");
+const { PDFDocument } = require("pdf-lib");
+const FormData = require("form-data");
+const fs = require("fs");
+const path = require("path");
+const Document = require("../models/documentModel"); // Adjust path if needed
+
+// Your Twilio client setup here
+
 const sendMessage = async (req, res) => {
-  try {
-    client.messages
-      .create({
-        body: req.body.message,
-        from: process.env.TWILIO_WHATSAPP_NUMBER,
-        to: "whatsapp:" + req.body.to,
-      })
-      .then((message) => console.log("Message sent successfully", message));
-
-    return res
-      .status(200)
-      .json({ success: true, msg: "Message sent successfully " });
-  } catch (error) {
-    return res.status(400).json({ success: false, msg: error.message });
-  }
-};
-
-
-const processReceivedMessages = (req, res) => {
-    const { Body, From, To } = req.body;
+    try {
+      const { userId } = req.body;
   
-    console.log("Received Message Body:", Body);
-    console.log("Message From:", From);
-    console.log("Message To:", To);
+      // Ensure userId is a valid string (phone number)
+      if (!userId || typeof userId !== 'string') {
+        return res.status(400).json({ success: false, msg: "Invalid userId (phone number)" });
+      }
   
-    // Respond to the incoming message
-    const twiml = new twilio.twiml.MessagingResponse();
-    twiml.message("Thanks for your message!");
+      // Fetch the document based on phone number (userId)
+      const document = await Document.findOne({ userId: userId });
   
-    res.set('Content-Type', 'text/xml');
-    res.send(twiml.toString());
+      if (!document) {
+        return res.status(404).json({ success: false, msg: "Document not found" });
+      }
+  
+      // Fetch fileUrl and other properties
+      const { fileUrl } = document;
+  
+      if (!fileUrl) {
+        return res.status(400).json({ success: false, msg: "File URL not found" });
+      }
+  
+      // Step 1: Download the image from the URL using axios
+      const imageResponse = await axios.get(fileUrl, { responseType: "arraybuffer" });
+  
+      // Step 2: Convert image to PDF using pdf-lib
+      const pdfDoc = await PDFDocument.create();
+      const img = await pdfDoc.embedJpg(imageResponse.data);
+      const page = pdfDoc.addPage([img.width, img.height]);
+      page.drawImage(img, { x: 0, y: 0 });
+  
+      // Step 3: Save the PDF to a temporary file
+      const pdfBytes = await pdfDoc.save();
+      const pdfPath = path.join(__dirname, "temp.pdf");
+      fs.writeFileSync(pdfPath, pdfBytes);
+  
+      // Step 4: Create a form-data object to send the PDF to Twilio via WhatsApp
+      const form = new FormData();
+      form.append("MediaUrl", `data:application/pdf;base64,${pdfBytes.toString("base64")}`);
+      form.append("From", process.env.TWILIO_WHATSAPP_NUMBER);
+      form.append("To", `whatsapp:${userId}`);
+  
+      // Step 5: Send the PDF as a WhatsApp message via Twilio API
+      client.messages
+        .create({
+          body: "Here is your requested document as a PDF.",
+          from: process.env.TWILIO_WHATSAPP_NUMBER,
+          to: `whatsapp:${userId}`,
+          mediaUrl: pdfPath // Send the media URL (PDF file)
+        })
+        .then((message) => {
+          console.log("Message sent successfully", message);
+          return res.status(200).json({ success: true, msg: "Message sent successfully" });
+        })
+        .catch((error) => {
+          console.error("Error sending message:", error);
+          return res.status(400).json({ success: false, msg: "Failed to send the message" });
+        });
+    } catch (error) {
+      console.error("Error during PDF creation or sending message:", error);
+      return res.status(400).json({ success: false, msg: error.message });
+    }
+  };
+  
+
+
+const processReceivedMessages = async (req, res) => {
+    try {
+      const incomingMessage = req.body.Body; // The body of the incoming message
+      const fromNumber = req.body.From; // The number from which the message was sent
+  
+      console.log(`Received message: "${incomingMessage}" from: ${fromNumber}`);
+  
+      // Create a Twilio response to reply to the user
+      const response = new MessagingResponse();
+  
+      // Add a message to the response
+      response.message("Thank you for your message! We received: " + incomingMessage);
+  
+      // Send the response back to Twilio
+      res.set("Content-Type", "text/xml");
+      res.status(200).send(response.toString());
+    } catch (error) {
+      console.error("Error handling incoming message", error);
+      res.status(500).send("Error handling incoming message");
+    }
   };
 
 module.exports = {

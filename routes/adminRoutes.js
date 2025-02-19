@@ -1,17 +1,20 @@
 const express = require("express");
-const { addUser, uploadDocument } = require("../controllers/adminController");
+const { uploadDocument, addDocumentForUser, addUser } = require("../controllers/adminController");
 // const { processIncomingMessage } = require("../controllers/sendMessageController");
-const { sendMessage, processReceivedMessages } = require("../controllers/sendMessageController");
+const { sendMessage } = require("../controllers/sendMessageController");
 
 
 
 const router = express.Router();
+
+router.post("/create-user", addUser);
+router.post("/add-document", addDocumentForUser);
+
 router.post("/whatsapp-webhook", sendMessage); 
-router.get("/whatsapp-received", processReceivedMessages); 
+// router.get("/whatsapp-received", processReceivedMessages); 
 
 
 
-// https://whatsapp-pdf-maker.onrender.com/api/admin/whatsapp-received
 
 
 

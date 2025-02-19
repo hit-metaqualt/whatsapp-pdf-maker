@@ -1,0 +1,13 @@
+{
+    "type": "service_account",
+    "project_id": "whatsapp-pdf-maker",
+    "private_key_id": "bf95c29e23d34c71fca73210c9f5156410ba5813",
+    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDF81x71IahY8my\nJEoxX/9Cwcca0UOfE/fn4619pDMmeOF4ul/IOvEWQ9nECuENXZB0u5kyF4DYjwxw\n7DPxTkDfsYRoUYOctXg/T7X5U6Q6ZIlJwX6KJXeMv+Ca2eb4+VBgTnd8ZU0Rhdpd\nGesT5xNG4P7srSSJCV1Rsj0Fr1daq4O3gdq1NadQ2L/yXYB7NT+gfXRoW4tiz4Sj\n1BJM00YXxDNl0jbjngxjnOOfxY3Gb3cQDNCcKydNEc/a8KP39GJMdHMU99oTPHAk\nCxOE4J8ef1tfPftPzGCxDJ/ULTM5Z87XKQ6fVB/j40wjn2WV0Y6gJy71xbfM3D7f\n0vz9kvPFAgMBAAECggEALnRSO+1AOxfD+b5yeuvgZ7Y6F50MlYSGJTFVQasLJfgw\nUbjLSZ4rfeImdM9oyU4v3HU6GntRjYDklouYFQUcTGLIhAK9NEWSFqmKNxzd6aY2\nYcy6+YiZabqN50lD3yIDLta7S8IqN/aFrFusw1rzNysOKFTpwg8ki0uc7nybr3cu\n0oN8N9KMqcoHuJnYGzPModMtCJKfzScENFoFgRd2Ph4s9PTnou+NoRXb752Jb9N6\njdwNWNDJbrP1jAfZieZ8RZvrz+aOkGO8bTTeTWbU3soHJkQ9YZ0wUoXt+2+0Fvt9\nkx9Xts8EMByucyZiWFcTt/vIE9gletf5iEZFcmJg8QKBgQDzc6V78wSh96fyViKy\ni5IVl2OiyyTBIiNvgmm227AtwEZrpUQDSycHWWs69gTydkHSN873dJMZM075ixKF\n/G3fuumeKbPFi/02besckzLuYNnHDCPM/Jdl3WCXdaeuVxrRHTTYl3nodOtcEHKX\nWq2POOiWfxUOw1CdtOQtUCW4HwKBgQDQJ1OAudKrQpM/82xlDiHvawsOmwXH7RFC\n8rSyNd1lnWSx7apr7MTGk8G4jRk1Bg8+bCOP+AU1dTgDhRu+eksVpGGYVY4Cb6Ou\nWAabF61AyvsrQashpNuY5HqwQtzhQJXA9kKYVV9kp+FCCaPkbGLZIqzq5Vee7xbG\ng9IFIVhnmwKBgATv1m5CClkCfaxjZMa8H9VCQan+dptYBuHvAhfMMrFq0cLDEjMC\n5iK3BH6omIcWMNWDfjX0bjs3mCVlVZXT/aJo1u33KIccBKGC7x6gOYst+ZyYuW0h\nviw5pgjMQP8/EvMkpXqy76zwGgm+56P8GcLqw4SxxQqMmWjpTytAEdO/AoGAO8sw\nN4gptjyXpAU/HABlSytKr9VkYbv9+2dQ9Oh4QtpltJ77F6maFRkYyvTtSsgE1P+n\nb5HlnSehAZHZGGx06TChQGtDMfvz3v82VpMEl9o3MIParv12f4MSo1Nxs9sjqZyU\nIMJVdsqq8JdoVxOziYBmf8uF0ggIWNpBGGwtwwUCgYB5rPxOPNbgpE6XFILzyhGY\nf6uE4uD01iJk8uyQoxi4mv2Z4SqVOjwWrkW34MP4lKVoQsTSxfBkNM/wYubGQCY0\nP4sUm9bwdp1hPWtCEVrloUqNctSMpi/W8D230jhmFuL/jWrBpn2ivS/kFY8SS/TW\nbsEwfxvpejM/F98RMTzz7A==\n-----END PRIVATE KEY-----\n",
+    "client_email": "firebase-adminsdk-fbsvc@whatsapp-pdf-maker.iam.gserviceaccount.com",
+    "client_id": "103167919313087992155",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40whatsapp-pdf-maker.iam.gserviceaccount.com",
+    "universe_domain": "googleapis.com"
+  }

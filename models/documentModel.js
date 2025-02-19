@@ -1,9 +1,11 @@
 const mongoose = require("mongoose");
 
 const documentSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  type: { type: String, required: true }, // PAN, Aadhar, etc.
-  fileUrl: { type: String, required: true }, // URL to the document
+  userId: { type: String, required: true },
+  type: { type: String, required: true },
+  name: { type: String, required: true },
+  fileUrl: { type: String, required: true },
+  uploadedAt: { type: Date, default: Date.now },
 });
 
 module.exports = mongoose.model("Document", documentSchema);

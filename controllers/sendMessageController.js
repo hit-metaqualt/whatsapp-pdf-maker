@@ -112,8 +112,8 @@ const receiveMessage = async (req, res) => {
       await sendMessageToUser(From, "❌ You are not registered. Please contact Admin.");
       return res.status(400).send("User not found.");
     }
-    console.log("21111111111111111-user",user)
-    console.log("🔍 User from DB:", user.username);
+
+    console.log("🔍 User from DB:", user);
 
     const userDocuments = await Document.find({ userId: formattedNumber });
 
@@ -221,14 +221,13 @@ const receiveMessage = async (req, res) => {
     await sendMessageToUser(From, `🔍 Searching for your ${docType.toUpperCase()} document...`);
 
     const document = userDocuments.find(doc => doc.type === docType);
+
     if (!document) {
       console.log(`❌ No ${docType.toUpperCase()} document found for user ${formattedNumber}`);
       await sendMessageToUser(From, `❌ No ${docType.toUpperCase()} document found for your account.`);
       // No greeting message will be sent here
       return res.status(404).send(`${docType.toUpperCase()} document not found.`);
     }
-
-    console.log("111111111111111111111111-document.fileUrl",document.fileUrl);
 
     console.log(`✅ Sending ${docType.toUpperCase()} document to ${From}`);
     await sendMediaMessage(From, document.fileUrl, `${docType.toUpperCase()} Document.pdf`);

@@ -104,8 +104,10 @@ const receiveMessage = async (req, res) => {
 
     const formattedNumber = From.replace("whatsapp:", "").replace("+91", "").trim();
     console.log(`📞 Formatted Number: ${formattedNumber}`);
+    const user = await User.find({ whatsappNumber: formattedNumber });
 
-    const user = await User.findOne({ whatsappNumber: formattedNumber });
+
+    console.log("111111111111111",User)
 
     if (!user) {
       console.log("❌ User not found in database.");

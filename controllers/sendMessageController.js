@@ -91,7 +91,6 @@ const sendMessage = async (req, res) => {
 
 
 
-
 const receiveMessage = async (req, res) => {
   try {
     const { Body, From } = req.body;
@@ -113,8 +112,8 @@ const receiveMessage = async (req, res) => {
       await sendMessageToUser(From, "❌ You are not registered. Please contact Admin.");
       return res.status(400).send("User not found.");
     }
-
-    console.log("🔍 User from DB:", user);
+    console.log("21111111111111111-user",user)
+    console.log("🔍 User from DB:", user.username);
 
     const userDocuments = await Document.find({ userId: formattedNumber });
 
@@ -133,8 +132,12 @@ const receiveMessage = async (req, res) => {
       "3": "itr",
       "pan": "pan",
       "aadhar": "adhar",
-      "adhar": "adhar",
-      "itr": "itr"
+      "itr": "itr",
+      "4": "passport",
+      "5": "bankstatement",
+      "6": "payroll",
+      "7": "voterid",
+      "8": "drivinglicense"
     };
 
     // Step 1: If user selects "ITR", ask for the year
@@ -150,6 +153,8 @@ const receiveMessage = async (req, res) => {
     // Step 2: If user is selecting an ITR year
     if (user.waitingForItrYear) {
       const validYears = ["2022", "2023", "2024"];
+      
+      // If the user has selected an invalid year
       if (!validYears.includes(userMessage)) {
         await sendMessageToUser(
           From,
@@ -158,31 +163,53 @@ const receiveMessage = async (req, res) => {
         return res.status(400).send("Invalid ITR year.");
       }
 
-      console.log(`🔍 Searching for ITR document for ${formattedNumber} - Year: ${userMessage}`);
+      console.log(`🔍 User selected ITR year: ${userMessage}`);
 
-      const document = userDocuments.find(doc => doc.type === "itr" && doc.itrYear === userMessage);
-
-      if (!document) {
-        console.log(`❌ No ITR document found for year ${userMessage}`);
-        await sendMessageToUser(From, `❌ No ITR document found for year ${userMessage}.`);
-        return res.status(404).send("ITR document not found.");
+      // If the user selects ITR, send default URL and message
+      if (validYears.includes(userMessage)) {
+        console.log("2222222222222222222");
+        await sendMessageToUser(
+          From,
+          `✅ You have selected ITR for the year ${userMessage}.\n` +
+          `Here is the default ITR document URL: [ITR Document](https://res.cloudinary.com/dm2x9xuwa/image/upload/v1733563331/samples/animals/three-dogs.jpg)\n\n` +
+          `If you need any further assistance or have questions, feel free to ask!`
+        );
+        // Reset ITR year selection state
+        await User.updateOne({ whatsappNumber: formattedNumber }, { waitingForItrYear: false });
+        return res.status(200).send("Static message and URL sent for ITR.");
       }
-
-      console.log(`✅ Sending ITR ${userMessage} document to ${From}`);
-      await sendMediaMessage(From, document.fileUrl, `ITR ${userMessage} Document.pdf`);
-
-      // Reset ITR year selection state
-      await User.updateOne({ whatsappNumber: formattedNumber }, { waitingForItrYear: false });
-      return res.status(200).send("ITR document sent.");
     }
 
-    // Step 3: Handle normal document requests
-    if (!docTypes[userMessage]) {
+    if (["2022", "2023", "2024"].includes(userMessage)) {
       await sendMessageToUser(
         From,
-        `👋 Hello! How can I assist you?\n\n` +
+        `✅ You have selected ITR for the year ${userMessage}.\n` +
+        `Here is the default ITR document PDF for testing: [Download ITR Document PDF](https://res.cloudinary.com/dm2x9xuwa/raw/upload/v1739957947/documents/dj6tiazvv74f8yeyihyt)\n\n` +
+        `If you need any further assistance or have questions, feel free to ask!`
+      );
+    
+      await sendMediaMessage(
+        From,
+        "https://res.cloudinary.com/dm2x9xuwa/raw/upload/v1739957947/documents/dj6tiazvv74f8yeyihyt", // New PDF URL
+        "ITR Document.pdf"
+      );
+    
+      await sendMessageToUser(
+        From,
+        `👋 Hello *${user.username || 'there'}*! How can I assist you?\n\n` +
         `Please select a document type:\n` +
-        `1️⃣ PAN\n2️⃣ Aadhar\n3️⃣ ITR\n\n` +
+        `1️⃣ PAN\n2️⃣ Aadhar\n3️⃣ ITR\n4️⃣ Passport\n5️⃣ Bank Statement\n6️⃣ Payroll\n7️⃣ Voter ID\n8️⃣ Driving License\n\n` +
+        `Reply with the number or document name.`
+      );
+    }
+
+    // Step 3: Handle normal document requests (Other than ITR)
+    if (!["2022", "2023", "2024"].includes(userMessage) && !docTypes[userMessage]) {
+      await sendMessageToUser(
+        From,
+        `👋 Hello *${user.username || 'there'}*! How can I assist you?\n\n` +
+        `Please select a document type:\n` +
+        `1️⃣ PAN\n2️⃣ Aadhar\n3️⃣ ITR\n4️⃣ Passport\n5️⃣ Bank Statement\n6️⃣ Payroll\n7️⃣ Voter ID\n8️⃣ Driving License\n\n` +
         `Reply with the number or document name.`
       );
       return res.status(200).send("Greeting message sent.");
@@ -194,12 +221,14 @@ const receiveMessage = async (req, res) => {
     await sendMessageToUser(From, `🔍 Searching for your ${docType.toUpperCase()} document...`);
 
     const document = userDocuments.find(doc => doc.type === docType);
-
     if (!document) {
       console.log(`❌ No ${docType.toUpperCase()} document found for user ${formattedNumber}`);
       await sendMessageToUser(From, `❌ No ${docType.toUpperCase()} document found for your account.`);
-      return res.status(404).send("Document not found.");
+      // No greeting message will be sent here
+      return res.status(404).send(`${docType.toUpperCase()} document not found.`);
     }
+
+    console.log("111111111111111111111111-document.fileUrl",document.fileUrl);
 
     console.log(`✅ Sending ${docType.toUpperCase()} document to ${From}`);
     await sendMediaMessage(From, document.fileUrl, `${docType.toUpperCase()} Document.pdf`);

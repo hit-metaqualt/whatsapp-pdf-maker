@@ -12,9 +12,16 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// ✅ Multer Setup (Memory Storage for Cloudinary)
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage }).single("fileUrl"); // Ensure the field name is "document"
+const upload = multer({
+  storage: storage, // ✅ Use the declared storage
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB limit
+}).single("file"); // ✅ Ensure "file" matches the form field name
+
+
+
+
+
 
 // ✅ Add New User
 exports.addUser = async (req, res) => {
@@ -52,11 +59,17 @@ exports.addDocumentForUser = async (req, res) => {
   upload(req, res, async (err) => {
     if (err) {
       console.error("Multer error:", err);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: "File size too large" });
+      }
       return res.status(400).json({ error: "File upload failed", details: err.message });
     }
 
+    // 🚀 Debug: Check what multer received
+    console.log("Request Body:", req.body);
+    console.log("Uploaded File:", req.file);
+
     let { userId, type, name } = req.body;
-    console.log("Received request to add document:", { userId, type, name });
 
     // ✅ Validate Inputs
     if (!userId || !type || !name || !req.file) {
@@ -113,3 +126,5 @@ exports.addDocumentForUser = async (req, res) => {
     }
   });
 };
+
+

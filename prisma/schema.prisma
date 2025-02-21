@@ -42,19 +42,21 @@ model DeviceSession {
 }
 
 model User {
-  id             String     @id @default(uuid())
-  whatsappNumber String     @unique
-  username       String?
-  email          String?
-  address        String?
-  age            Int?
-  gender         Gender     @default(Other)
-  adminId        String
-  documents      Document[]
-  admin          Admin      @relation(fields: [adminId], references: [id])
+  id              String     @id @default(uuid())
+  whatsappNumber  String     @unique
+  username        String?
+  email           String?
+  address         String?
+  age             Int?
+  gender          Gender     @default(Other)
+  adminId         String
+  documents       Document[]
+  admin           Admin      @relation(fields: [adminId], references: [id]) // This is the correct relation
+  lastInteraction BigInt?    @default(0) // No relation here, just a regular field
 
   @@index([adminId], map: "User_adminId_fkey")
 }
+
 
 model Document {
   id         String   @id @default(uuid())
@@ -62,9 +64,9 @@ model Document {
   type       String
   name       String
   fileUrl    String
-  year       Int
+  year       Int?      // ✅ Make `year` optional
   uploadedAt DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id])
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade) // ✅ Ensure this allows optional linking
 
   @@index([userId], map: "Document_userId_fkey")
 }

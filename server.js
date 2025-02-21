@@ -1,11 +1,12 @@
 require("dotenv").config();
 const express = require("express");
-const mongoose = require("mongoose");
 const cors = require("cors");
 const { PrismaClient } = require("@prisma/client"); 
 const prisma = new PrismaClient(); // Initialize Prisma
 
 const adminRoutes = require("./routes/adminRoutes");
+const superAdminRoutes = require("./routes/superAdminRoutes");
+
 
 
 const app = express();
@@ -28,19 +29,12 @@ async function testDBConnection() {
 testDBConnection();
 
 
-
-// MongoDB Connection
-// mongoose
-//   .connect(process.env.MONGO_URI)
-//   .then(() => console.log("MongoDB Connected"))
-//   .catch(err => console.log(err));
-
-
-
-
-// Routes
+app.use("/api", superAdminRoutes); 
 
 app.use("/api/admin", adminRoutes);
+
+
+
 
 app.get("/test", (req, res) => {
   res.status(200).json({ message: "Server is working correctly with Prisma & MySQL!" });

@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model SuperAdmin {
+  id         String  @id @default(uuid())
+  username   String  @unique
+  password   String
+  maxDevices Int     @default(1)
+  admins     Admin[]
+}
+
+model Admin {
+  id             String          @id @default(uuid())
+  username       String          @unique
+  password       String
+  superAdminId   String
+  allowedDevices Int             @default(1)
+  superAdmin     SuperAdmin      @relation(fields: [superAdminId], references: [id])
+  deviceSessions DeviceSession[]
+  users          User[]
+
+  @@index([superAdminId], map: "Admin_superAdminId_fkey")
+}
+
+model DeviceSession {
+  id         String    @id @default(uuid())
+  adminId    String
+  deviceInfo String
+  ipAddress  String
+  loginTime  DateTime  @default(now())
+  logoutTime DateTime?
+  isActive   Boolean   @default(true)
+  admin      Admin     @relation(fields: [adminId], references: [id])
+
+  @@index([adminId], map: "DeviceSession_adminId_fkey")
+}
+
+model User {
+  id             String     @id @default(uuid())
+  whatsappNumber String     @unique
+  username       String?
+  email          String?
+  address        String?
+  age            Int?
+  gender         Gender     @default(Other)
+  adminId        String
+  documents      Document[]
+  admin          Admin      @relation(fields: [adminId], references: [id])
+
+  @@index([adminId], map: "User_adminId_fkey")
+}
+
+model Document {
+  id         String   @id @default(uuid())
+  userId     String
+  type       String
+  name       String
+  fileUrl    String
+  year       Int
+  uploadedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "Document_userId_fkey")
+}
+
+enum Gender {
+  Male
+  Female
+  Other
+}

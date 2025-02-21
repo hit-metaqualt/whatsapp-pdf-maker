@@ -1,13 +1,13 @@
 const express = require("express");
-const { uploadDocument, addDocumentForUser, addUser} = require("../controllers/adminController");
+const { uploadDocument, addDocumentForUser, addUser, login} = require("../controllers/adminController");
 const { sendMessage, receiveMessage } = require("../controllers/sendMessageController");
-const { upload } = require("../controllers/middleware/multerConfig");
+const { upload } = require("../middlewares/multerConfig");
 
 
 const router = express.Router();
 
 
-
+router.post("/login", login);
 router.post("/create-user", addUser);
 router.post("/add-document",upload.single("file"),addDocumentForUser);
 router.post("/whatsapp-webhook", sendMessage); 

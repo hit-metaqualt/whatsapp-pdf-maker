@@ -1,9 +1,7 @@
-const mongoose = require("mongoose");
 const User = require("../models/userModel");
 const Document = require("../models/documentModel");
-const multer = require("multer");
 const cloudinary = require("cloudinary").v2;
-const streamifier = require("streamifier");
+
 
 // ✅ Configure Cloudinary
 cloudinary.config({
@@ -12,11 +10,8 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage, // ✅ Use the declared storage
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB limit
-}).single("file"); // ✅ Ensure "file" matches the form field name
+
+
 
 
 
@@ -54,77 +49,60 @@ exports.addUser = async (req, res) => {
   }
 };
 
-// ✅ Upload Document to Cloudinary and Save in MongoDB
+
+
+
 exports.addDocumentForUser = async (req, res) => {
-  upload(req, res, async (err) => {
-    if (err) {
-      console.error("Multer error:", err);
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ error: "File size too large" });
-      }
-      return res.status(400).json({ error: "File upload failed", details: err.message });
-    }
+  try {
+    const { userId, type, name } = req.body;
 
-    // 🚀 Debug: Check what multer received
-    console.log("Request Body:", req.body);
-    console.log("Uploaded File:", req.file);
-
-    let { userId, type, name } = req.body;
-
-    // ✅ Validate Inputs
+    // Validate request data
     if (!userId || !type || !name || !req.file) {
-      return res.status(400).json({ error: "userId, type, name, and file are required" });
+      return res.status(400).json({ message: "All fields are required" });
     }
 
-    try {
-      // ✅ Find user by ObjectId or WhatsApp number
-      let user = mongoose.Types.ObjectId.isValid(userId)
-        ? await User.findById(userId)
-        : await User.findOne({ whatsappNumber: userId });
+    // ✅ Find User by WhatsApp Number (Mobile Number)
+    const user = await User.findOne({ whatsappNumber: userId });
 
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // ✅ Determine File Type for Cloudinary
-      const fileType = req.file.mimetype.startsWith("image/") ? "image" : "raw";
-
-      // ✅ Upload file to Cloudinary
-      const uploadStream = cloudinary.uploader.upload_stream(
-        { resource_type: fileType, folder: "documents" },
-        async (error, result) => {
-          if (error) {
-            console.error("Cloudinary upload error:", error);
-            return res.status(500).json({ error: "Cloudinary upload failed" });
-          }
-
-          console.log("Cloudinary Upload Result:", result);
-
-          // ✅ Save document in MongoDB
-          const document = new Document({
-            userId: user._id,
-            type,
-            name,
-            fileUrl: result.secure_url,
-          });
-
-          await document.save();
-
-          // ✅ Link document to user
-          user.documents.push(document._id);
-          await user.save();
-
-          res.status(201).json({ message: "Document added successfully", document });
-        }
-      );
-
-      // ✅ Convert Buffer to Stream and Upload
-      streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
-    } catch (err) {
-      console.error("Error:", err);
-      res.status(500).json({ error: err.message });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
-  });
+
+    console.log("11111111-ading file to Cloudinary:", req.file.originalname);
+
+
+
+    // ✅ Get Cloudinary file URL
+    const fileUrl = req.file.path;
+
+    console.log("111111111-Cloudinary Upload Successful:", fileUrl);
+
+
+
+
+    // ✅ Create a new document entry
+    const newDocument = new Document({
+      userId: user.whatsappNumber, // Store the mobile number
+      type,
+      name,
+      fileUrl,
+    });
+
+    // ✅ Save document to DB
+    const savedDocument = await newDocument.save();
+
+    // ✅ Update User's documents array
+    user.documents.push(savedDocument._id);
+    await user.save();
+
+    res.status(201).json({
+      message: "Document uploaded successfully",
+      document: savedDocument,
+    });
+  } catch (error) {
+    console.error("Error uploading document:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
 };
 
 

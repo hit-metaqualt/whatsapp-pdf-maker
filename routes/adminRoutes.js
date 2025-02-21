@@ -1,11 +1,10 @@
 const express = require("express");
 const { uploadDocument, addDocumentForUser, addUser} = require("../controllers/adminController");
 const { sendMessage, receiveMessage } = require("../controllers/sendMessageController");
+const { upload } = require("../controllers/middleware/multerConfig");
 
 
 const router = express.Router();
-const multer = require("multer");
-const upload = multer({ storage: multer.memoryStorage() });
 
 
 

@@ -1,19 +1,50 @@
 const jwt = require("jsonwebtoken");
+const { PrismaClient } = require("@prisma/client");
 
-module.exports = (req, res, next) => {
-  const authHeader = req.header("Authorization");
+const prisma = new PrismaClient();
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Access denied. No token provided." });
-  }
 
-  const token = authHeader.split(" ")[1]; // Extract token after 'Bearer '
 
+const SECRET_KEY = process.env.JWT_SECRET || "your_secret_key";
+
+
+
+
+
+// 🔹 Middleware to authenticate admin and super admin
+exports.authMiddleware = async (req, res, next) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET); // Verify token
-    req.adminId = decoded.adminId; // Attach admin ID to request object
-    next(); // Continue to the next middleware or controller
+    const token = req.header("Authorization")?.replace("Bearer ", "");
+    
+    if (!token) {
+      return res.status(401).json({ success: false, message: "Unauthorized: No token provided" });
+    }
+
+    jwt.verify(token, SECRET_KEY, async (err, decoded) => {
+      if (err) {
+        return res.status(401).json({ success: false, message: "Unauthorized: Invalid token" });
+      }
+
+      // Ensure the user has a valid role (admin or super admin)
+      if (!decoded.role || (decoded.role !== "admin" && decoded.role !== "superadmin")) {
+        return res.status(403).json({ success: false, message: "Forbidden: Only admins can access this route" });
+      }
+
+      // 🔹 Fetch admin details from database
+      const admin = await prisma.admin.findUnique({ where: { id: decoded.id } });
+
+      if (!admin) {
+        return res.status(404).json({ success: false, message: "Admin not found" });
+      }
+
+      req.admin = admin; // Attach admin details to request
+      next();
+    });
+
   } catch (error) {
-    return res.status(401).json({ message: "Invalid token." });
+    console.error("Auth Middleware Error:", error);
+    return res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
+
+

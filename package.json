@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node config/syncDatabase.js && nodemon server.js",
+    "start": "nodemon server.js",
     "sync-db": "node config/syncDatabase.js"
   },
   "keywords": [],
@@ -14,6 +14,7 @@
   "dependencies": {
     "@prisma/client": "6.4.1",
     "axios": "^1.7.9",
+    "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
     "body-parser": "^1.20.3",
     "cloudinary": "^1.41.3",

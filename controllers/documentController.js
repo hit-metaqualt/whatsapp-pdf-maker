@@ -41,19 +41,21 @@ exports.addDocumentForUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // ✅ Use Cloudinary URL from Multer
+    // ✅ Use Cloudinary URL from Multer or save locally
     const fileUrl = req.file.path;
 
-    // ✅ Corrected: Explicitly exclude `user`
+    // Save the document to the database
     const savedDocument = await prisma.document.create({
       data: { 
         userId,  
         type, 
         name, 
         fileUrl, 
-        year: documentsRequiringYear.has(type) ? year : null,
+        year: documentsRequiringYear.has(type) ? year : null, // Save year if required
       },
     });
+
+    console.log(`Document uploaded successfully: ${savedDocument.name} for User ID: ${userId}`);  // Console log for confirmation
 
     res.status(201).json({ message: "Document uploaded successfully", document: savedDocument });
 
@@ -62,6 +64,7 @@ exports.addDocumentForUser = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
 
 
 

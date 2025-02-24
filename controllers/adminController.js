@@ -12,55 +12,120 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// ---------------------------LOGIN API------------------
-exports.login = async (req, res) => {
-  const { username, password, deviceInfo, ipAddress } = req.body;
 
+
+exports.adminLogin = async (req, res) => {
   try {
-    const admin = await prisma.admin.findUnique({ where: { username } });
-    if (!admin) return res.status(404).json({ message: "Admin not found" });
+    const { username, password } = req.body;
 
-    const isMatch = await bcrypt.compare(password, admin.password);
-    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
-
-    const activeSessions = await prisma.deviceSession.count({
-      where: { adminId: admin.id, isActive: true },
-    });
-
-    if (activeSessions >= admin.allowedDevices) {
-      return res.status(403).json({ message: "Max device limit reached" });
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Username and password are required",
+      });
     }
 
-    await prisma.deviceSession.create({
-      data: { adminId: admin.id, deviceInfo, ipAddress, isActive: true },
+    // Find admin by username
+    const admin = await prisma.admin.findUnique({
+      where: { username },
     });
 
-    const token = jwt.sign({ adminId: admin.id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-    res.json({ token, admin });
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    // Compare password
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    // Generate JWT token (valid for 1 day)
+    const token = jwt.sign(
+      { adminId: admin.id, username: admin.username },
+      process.env.JWT_SECRET || "your_secret_key",
+      { expiresIn: "1d" }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token,
+      admin: {
+        id: admin.id,
+        username: admin.username,
+        email: admin.email,
+        role: admin.role, // Optional: Add role if needed
+        createdAt: admin.createdAt,
+      },
+    });
+
   } catch (error) {
     console.error("Login Error:", error);
-    res.status(500).json({ message: "Server error", error });
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
-
-// ---------------------LOGOUT API------------------
-exports.logout = async (req, res) => {
-  const { sessionId } = req.body;
+// ✅ Admin Logout API
+exports.adminLogout = async (req, res) => {
   try {
-    const session = await prisma.deviceSession.findUnique({ where: { id: sessionId } });
-    if (!session) return res.status(404).json({ message: "Session not found" });
+    // Extract token from Authorization header
+    const token = req.header("Authorization")?.replace("Bearer ", "");
+    if (!token) {
+      return res.status(401).json({ success: false, message: "No token provided" });
+    }
 
-    await prisma.deviceSession.update({
-      where: { id: sessionId },
-      data: { isActive: false, logoutTime: new Date() },
+    // Verify the token
+    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+      if (err) {
+        return res.status(401).json({ success: false, message: "Invalid token" });
+      }
+
+      // Return successful logout response
+      res.json({ success: true, message: "Logout successful" });
     });
-
-    res.json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Logout Error:", error);
-    res.status(500).json({ message: "Server error", error });
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
+
+exports.getActiveSessions = async (req, res) => {
+  try {
+    const { adminId } = req.body;
+
+    if (!adminId) {
+      return res.status(400).json({ message: "Admin ID is required" });
+    }
+
+    // Fetch active session
+    const activeSession = await prisma.devicesession.findFirst({
+      where: { adminId, isActive: true },
+      select: { id: true }
+    });
+
+    if (!activeSession) {
+      return res.status(404).json({ message: "No active session found" });
+    }
+
+    return res.status(200).json({ sessionId: activeSession.id });
+  } catch (error) {
+    console.error("Fetch Sessions Error:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+
+
 
 // -----------------ADD NEW USER-----------------
 exports.addUser = async (req, res) => {
@@ -92,7 +157,8 @@ exports.addDocumentForUser = async (req, res) => {
     }
 
     // Ensure user exists before proceeding
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({ where: { whatsappNumber: userId } });
+    console.log("11111111111",user,userId)
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -123,25 +189,69 @@ exports.addDocumentForUser = async (req, res) => {
 exports.createAdminUser = async (req, res) => {
   try {
     const { username, password, superAdminId } = req.body;
+
+    // ✅ Validate Required Fields
     if (!username || !password || !superAdminId) {
-      return res.status(400).json({ error: "Username, password, and SuperAdmin ID are required" });
+      return res.status(400).json({
+        success: false,
+        message: "Username, password, and superAdminId are required.",
+      });
     }
 
-    const superAdmin = await prisma.superAdmin.findUnique({ where: { id: superAdminId } });
-    if (!superAdmin) return res.status(404).json({ error: "SuperAdmin not found" });
-
-    const existingAdmin = await prisma.admin.findUnique({ where: { username } });
-    if (existingAdmin) return res.status(400).json({ error: "Admin already exists" });
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const admin = await prisma.admin.create({
-      data: { username, password: hashedPassword, superAdminId },
+    // ✅ Validate SuperAdmin Existence
+    const superAdmin = await prisma.superadmin.findUnique({
+      where: { id: superAdminId },
     });
 
-    res.status(201).json({ message: "Admin created successfully", admin });
+    if (!superAdmin) {
+      return res.status(404).json({
+        success: false,
+        message: "SuperAdmin not found.",
+      });
+    }
+
+    // ✅ Check if Admin Username Already Exists
+    const existingAdmin = await prisma.admin.findUnique({
+      where: { username },
+    });
+
+    if (existingAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: "Admin username already exists. Choose a different username.",
+      });
+    }
+
+    // ✅ Hash Password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // ✅ Create New Admin (Fix: Remove `createdAt`)
+    const admin = await prisma.admin.create({
+      data: {
+        username,
+        password: hashedPassword,
+        superAdminId,
+      },
+      select: {
+        id: true,
+        username: true,
+        superAdminId: true,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Admin created successfully.",
+      admin,
+    });
+
   } catch (err) {
     console.error("Error creating Admin:", err);
-    res.status(500).json({ error: "Internal server error" });
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+      error: err.message,
+    });
   }
 };

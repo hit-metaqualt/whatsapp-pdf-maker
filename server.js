@@ -5,8 +5,6 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient(); // Initialize Prisma
 
 const adminRoutes = require("./routes/adminRoutes");
-const superAdminRoutes = require("./routes/superAdminRoutes");
-
 
 
 const app = express();
@@ -14,6 +12,9 @@ app.use(express.json());
 app.use(cors());
 app.use(express.urlencoded({ extended: true })); 
 
+BigInt.prototype.toJSON = function () {
+  return this.toString();
+};
 
 
 
@@ -29,7 +30,17 @@ async function testDBConnection() {
 testDBConnection();
 
 
-app.use("/api", superAdminRoutes); 
+
+// MongoDB Connection
+// mongoose
+//   .connect(process.env.MONGO_URI)
+//   .then(() => console.log("MongoDB Connected"))
+//   .catch(err => console.log(err));
+
+
+
+
+// Routes
 
 app.use("/api/admin", adminRoutes);
 

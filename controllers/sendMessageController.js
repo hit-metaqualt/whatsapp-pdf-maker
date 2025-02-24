@@ -93,7 +93,6 @@ const sendMessage = async (req, res) => {
 const receiveMessage = async (req, res) => {
   try {
     const { Body, From } = req.body;
-
     if (!Body || !From) {
       console.log("⚠️ Invalid message format received.");
       return res.status(400).send("Invalid message format.");

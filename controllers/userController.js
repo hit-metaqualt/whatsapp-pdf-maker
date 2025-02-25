@@ -11,6 +11,12 @@ const createUser = async (req, res) => {
       return res.status(400).json({ error: "whatsappNumber and adminId are required." });
     }
 
+    // 🔹 Convert age to an integer if it's provided
+    const ageInt = age ? parseInt(age, 10) : null;
+
+    // 🔹 Convert gender to match the UserGender enum
+    const validGender = gender ? gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase() : null;
+
     // 🔹 Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { whatsappNumber },
@@ -27,8 +33,8 @@ const createUser = async (req, res) => {
         username,
         email,
         address,
-        age,
-        gender: gender || null, // If gender is empty, set it to `null`
+        age: ageInt, // Use the converted integer value
+        gender: validGender, // Use the corrected gender value
         adminId,
       },
     });
@@ -45,31 +51,30 @@ const createUser = async (req, res) => {
   }
 };
 
+
 const fetchAllUsers = async (req, res) => {
   try {
-    console.log("Admin Object in Request:", req.admin); // Debugging
+    console.log("User Object in Request:", req.user); // Debugging
 
-    if (!req.admin || !req.admin.id) {
-      return res.status(401).json({ success: false, error: "Unauthorized: Admin ID not found" });
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, error: "Unauthorized: User ID not found" });
     }
 
-    const adminId = req.admin.id;
+    const adminId = req.user.id; // Use req.user instead of req.admin
 
     // Fetch users associated with the given admin ID
     const users = await prisma.user.findMany({
       where: { adminId },
     });
 
-    if (!users || users.length === 0) {
-      return res.status(404).json({ success: false, message: "No users found for this admin." });
-    }
-
-    // Convert BigInt values to strings
-    const formattedUsers = users.map(user => ({
-      ...user,
-      id: user.id.toString(),
-      lastInteraction: user.lastInteraction ? user.lastInteraction.toString() : "0",
-    }));
+    // Return success with empty array if no users are found
+    const formattedUsers = users.length > 0 
+      ? users.map(user => ({
+          ...user,
+          id: user.id.toString(),
+          lastInteraction: user.lastInteraction ? user.lastInteraction.toString() : "0",
+        }))
+      : [];
 
     return res.status(200).json({ success: true, users: formattedUsers });
 
@@ -82,6 +87,7 @@ const fetchAllUsers = async (req, res) => {
     });
   }
 };
+
 
 
 const fetchUserDocuments = async (req, res) => {

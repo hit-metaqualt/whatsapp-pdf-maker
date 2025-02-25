@@ -104,7 +104,7 @@ exports.getLoggedInUser = async (req, res) => {
     let userData = null;
 
     // First, check if the user is a superAdmin
-    const superAdmin = await prisma.superadmin.findUnique({
+    const superAdmin = await prisma.superdmin.findUnique({
       where: { id },
       select: { id: true, username: true, maxDevices: true },
     });

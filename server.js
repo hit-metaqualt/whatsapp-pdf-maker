@@ -5,6 +5,8 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient(); // Initialize Prisma
 
 const adminRoutes = require("./routes/adminRoutes");
+const authRoutes= require("./routes/authRoutes");
+const superAdminRoutes =require("./routes/superAdminRoutes")
 
 
 const app = express();
@@ -43,6 +45,10 @@ testDBConnection();
 // Routes
 
 app.use("/api/admin", adminRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api", superAdminRoutes);
+
+
 
 
 

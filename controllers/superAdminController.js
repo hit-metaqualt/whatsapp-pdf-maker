@@ -6,6 +6,7 @@ const { addToBlacklist, isTokenBlacklisted } = require("../utils/tokenBlacklist"
 const prisma = new PrismaClient();
 const SECRET_KEY = process.env.JWT_SECRET || "";
 
+
 // ✅ Create SuperAdmin
 const createSuperAdmin = async (req, res) => {
   try {
@@ -17,6 +18,7 @@ const createSuperAdmin = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Ensure the model name matches exactly with your Prisma schema
     const superAdmin = await prisma.superadmin.create({
       data: { username, password: hashedPassword },
     });

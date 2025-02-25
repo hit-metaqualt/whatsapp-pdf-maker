@@ -2,49 +2,47 @@ const jwt = require("jsonwebtoken");
 const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
-
-
-
 const SECRET_KEY = process.env.JWT_SECRET || "your_secret_key";
 
-
-
-
-
-// 🔹 Middleware to authenticate admin and super admin
+// 🔹 Middleware to authenticate admin and superadmin
 exports.authMiddleware = async (req, res, next) => {
   try {
-    const token = req.header("Authorization")?.replace("Bearer ", "");
-    
-    if (!token) {
+    const authHeader = req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ success: false, message: "Unauthorized: No token provided" });
     }
 
-    jwt.verify(token, SECRET_KEY, async (err, decoded) => {
-      if (err) {
-        return res.status(401).json({ success: false, message: "Unauthorized: Invalid token" });
-      }
+    const token = authHeader.replace("Bearer ", "");
+    let decoded;
 
-      // Ensure the user has a valid role (admin or super admin)
-      if (!decoded.role || (decoded.role !== "admin" && decoded.role !== "superadmin")) {
-        return res.status(403).json({ success: false, message: "Forbidden: Only admins can access this route" });
-      }
+    try {
+      decoded = jwt.verify(token, SECRET_KEY);
+    } catch (err) {
+      return res.status(401).json({ success: false, message: "Unauthorized: Invalid or expired token" });
+    }
 
-      // 🔹 Fetch admin details from database
-      const admin = await prisma.admin.findUnique({ where: { id: decoded.id } });
+    // Ensure the user has a valid role (admin or superadmin)
+    if (!decoded.role || !["admin", "superAdmin"].includes(decoded.role)) {
+      return res.status(403).json({ success: false, message: "Forbidden: Access denied" });
+    }
 
-      if (!admin) {
-        return res.status(404).json({ success: false, message: "Admin not found" });
-      }
+    let user;
+    if (decoded.role === "admin") {
+      user = await prisma.admin.findUnique({ where: { id: decoded.id } });
+    } else if (decoded.role === "superAdmin") {
+      user = await prisma.superadmin.findUnique({ where: { id: decoded.id } });
+    }
 
-      req.admin = admin; // Attach admin details to request
-      next();
-    });
+    if (!user) {
+      return res.status(404).json({ success: false, message: `${decoded.role} not found` });
+    }
 
+    // Attach user details to request
+    req.user = { ...user, role: decoded.role };
+
+    next();
   } catch (error) {
     console.error("Auth Middleware Error:", error);
-    return res.status(500).json({ success: false, message: "Server error", error: error.message });
+    return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
   }
 };
-
-

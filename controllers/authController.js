@@ -22,7 +22,7 @@ exports.loginUser = async (req, res) => {
       // Check in SuperAdmin table
       user = await prisma.superadmin.findUnique({ where: { username } });
       if (user) {
-        role = "superadmin";
+        role = "superAdmin";
       } else {
         // Check in Admin table if not found in SuperAdmin
         user = await prisma.admin.findUnique({ where: { username } });
@@ -87,5 +87,64 @@ exports.logoutUser = async (req, res) => {
   } catch (error) {
     console.error("Logout Error:", error);
     return res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+
+
+
+exports.getLoggedInUser = async (req, res) => {
+  try {
+    // Ensure `req.user` exists and contains a valid `id` (set from authentication middleware)
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: "Unauthorized: Invalid token" });
+    }
+
+    const { id } = req.user;
+    let userData = null;
+
+    // First, check if the user is a superAdmin
+    const superAdmin = await prisma.superadmin.findUnique({
+      where: { id },
+      select: { id: true, username: true, maxDevices: true },
+    });
+
+    // If found in superAdmin, set userData
+    if (superAdmin) {
+      userData = { role: "superAdmin", ...superAdmin };
+    }
+
+    // If not found in superAdmin, check in admin
+    if (!userData) {
+      const admin = await prisma.admin.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          username: true,
+          allowedDevices: true,
+          createdAt: true,
+          superadmin: { select: { id: true, username: true } }, // ✅ Correct field name
+        },
+      });
+
+      // If found in admin, set userData
+      if (admin) {
+        userData = { role: "admin", ...admin };
+      }
+    }
+
+    // If no user is found in both schemas, return 404
+    if (!userData) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    return res.status(200).json({ success: true, message: "User fetched successfully", user: userData });
+  } catch (error) {
+    console.error("Error fetching user details:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };

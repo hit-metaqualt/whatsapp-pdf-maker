@@ -7,45 +7,51 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model admin {
-  id             String          @id @default(uuid()) // ✅ Auto-generate UUID
-  username       String          @unique
+model Admin {
+  id             String       @id @default(uuid())
+  username       String       @unique
   password       String
   superAdminId   String
-  allowedDevices Int             @default(1)
-  superadmin     superadmin      @relation(fields: [superAdminId], references: [id], map: "Admin_superAdminId_fkey")
-  devicesession  devicesession[]
-  user           user[]
+  allowedDevices Int          @default(1)
+  createdAt      DateTime     @default(now()) 
+
+  superadmin     Superadmin   @relation(fields: [superAdminId], references: [id], onDelete: Cascade)
+  devicesession  DeviceSession[]
+  users          User[]
 
   @@index([superAdminId])
 }
 
-model devicesession {
-  id         String    @id @default(uuid()) // ✅ Auto-generate UUID
+model DeviceSession {
+  id         String   @id @default(uuid()) 
   adminId    String
   deviceInfo String
   ipAddress  String
-  loginTime  DateTime  @default(now())
+  loginTime  DateTime @default(now())
   logoutTime DateTime?
-  isActive   Boolean   @default(true)
-  admin      admin     @relation(fields: [adminId], references: [id])
+  isActive   Boolean  @default(true)
+
+  admin      Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   @@index([adminId])
 }
 
 model User {
-  id             String     @id @default(uuid())
-  whatsappNumber String     @unique
-  username       String?
-  email          String?
-  address        String?
-  age            Int?
-  gender         Gender     @default(Other)
-  adminId        String
-  documents      Document[]
-  admin          Admin      @relation(fields: [adminId], references: [id])
+  id              String        @id @default(uuid())
+  whatsappNumber  String        @unique
+  username        String?
+  email           String?       @unique
+  address         String?
+  age             Int?
+  gender          UserGender?  // ✅ Corrected enum reference
+  adminId         String
+  lastInteraction Int?          @default(0)
+  createdAt       DateTime      @default(now()) 
 
-  @@index([adminId], map: "User_adminId_fkey")
+  documents       Document[]
+  admin           Admin         @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
 }
 
 model Document {
@@ -56,36 +62,23 @@ model Document {
   fileUrl    String
   year       Int
   uploadedAt DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id])
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
-model superadmin {
-  id         String  @id @default(uuid()) // ✅ Auto-generate UUID
-  username   String  @unique
+model Superadmin {
+  id         String   @id @default(uuid())
+  username   String   @unique
   password   String
-  maxDevices Int     @default(1)
-  admin      admin[]
+  maxDevices Int      @default(1)
+  createdAt  DateTime @default(now())
+
+  admins     Admin[]
 }
 
-model user {
-  id              String      @id @default(uuid()) // ✅ Auto-generate UUID
-  whatsappNumber  String      @unique
-  username        String?
-  email           String?
-  address         String?
-  age             Int?
-  gender          user_gender?  // ✅ Make gender optional
-  adminId         String
-  lastInteraction Int?        @default(0) // ✅ Use Int instead of BigInt for MySQL compatibility
-  document        document[]
-  admin           admin       @relation(fields: [adminId], references: [id])
-
-  @@index([adminId])
-}
-
-enum user_gender {
+enum UserGender {
   Male
   Female
   Other

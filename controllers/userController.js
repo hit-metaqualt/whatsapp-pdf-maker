@@ -93,55 +93,79 @@ const fetchAllUsers = async (req, res) => {
 const fetchUserDocuments = async (req, res) => {
   try {
     const { userId } = req.params;
+    const { type } = req.query;
 
-    // Validate userId
     if (!userId) {
-      return res.status(400).json({
-        status: false,
-        message: "User ID is required",
-      });
+      return res.status(400).json({ success: false, message: "User ID is required" });
     }
 
-    // Check if user exists before fetching documents
     const userExists = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true },
     });
 
     if (!userExists) {
-      return res.status(404).json({
-        status: false,
-        message: "User not found",
-      });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    // Fetch documents for the user
+    // Define the base URL (change this based on your actual server URL)
     const documents = await prisma.document.findMany({
-      where: { userId },
-      select: {
-        id: true,
-        type: true,
-        name: true,
-        fileUrl: true,
-        year: true,
-        uploadedAt: true,
+      where: { userId, ...(type ? { type } : {}) },
+      include: {
+        yearData: {
+          select: {
+            id: true,
+            documentId: true,
+            yearRange: true,
+            fileUrl: true,
+            uploadedAt: true,
+          },
+          orderBy: { uploadedAt: "desc" },
+        },
       },
+      orderBy: { uploadedAt: "desc" },
     });
+
+    const baseURL = "http://localhost:5000"; // Your Node.js server URL
+
+
+    const transformedDocuments = documents.map((doc) => ({
+      id: doc.id,
+      userId: doc.userId,
+      type: doc.type,
+      name: doc.name,
+      fileUrl: doc.fileUrl ? `${baseURL}/uploads/${doc.fileUrl}` : null, // Convert to full URL
+      uploadedAt: doc.uploadedAt,
+      hasYearWiseData: Array.isArray(doc.yearData) && doc.yearData.length > 0,
+      yearWiseData: doc.yearData.map((yearDoc) => ({
+        ...yearDoc,
+        fileUrl: yearDoc.fileUrl ? `${baseURL}/uploads/${yearDoc.fileUrl}` : null, // Convert to full URL
+      })),
+    }));
+
+
+    // const transformedDocuments = documents.map((doc) => ({
+    //   id: doc.id,
+    //   userId: doc.userId,
+    //   type: doc.type,
+    //   name: doc.name,
+    //   fileUrl: doc.fileUrl ? `${doc.fileUrl}` : null, // Convert to full URL
+    //   uploadedAt: doc.uploadedAt,
+    //   hasYearWiseData: Array.isArray(doc.yearData) && doc.yearData.length > 0,
+    //   yearWiseData: doc.yearData.map((yearDoc) => ({
+    //     ...yearDoc,
+    //     fileUrl: yearDoc.fileUrl ? `${yearDoc.fileUrl}` : null, // Convert to full URL
+    //   })),
+    // }));
 
     return res.status(200).json({
-      status: true,
-      message: documents.length ? "Documents fetched successfully" : "No documents found",
-      data: documents,
+      success: true,
+      message: transformedDocuments.length ? "Documents fetched successfully" : "No documents found",
+      data: transformedDocuments,
     });
-
   } catch (error) {
     console.error("Error fetching documents:", error);
-
-    return res.status(500).json({
-      status: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 

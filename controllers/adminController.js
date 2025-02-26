@@ -147,41 +147,7 @@ exports.addUser = async (req, res) => {
   }
 };
 
-// -----------------ADD DOCUMENT FOR USER-----------------
-exports.addDocumentForUser = async (req, res) => {
-  try {
-    const { userId, type, name, year } = req.body; // Include `year` if applicable
 
-    if (!userId || !type || !name || !req.file) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    // Ensure user exists before proceeding
-    const user = await prisma.user.findUnique({ where: { whatsappNumber: userId } });
-    console.log("11111111111",user,userId)
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const fileUrl = req.file.path;
-
-    // ✅ Explicitly connect the user using `userId`
-    const savedDocument = await prisma.document.create({
-      data: {
-        userId, // Directly passing userId
-        type,
-        name,
-        fileUrl,
-        year: year || null, // Ensure optional year is handled
-      },
-    });
-
-    res.status(201).json({ message: "Document uploaded successfully", document: savedDocument });
-  } catch (error) {
-    console.error("Error uploading document:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
 
 
 

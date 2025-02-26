@@ -43,7 +43,7 @@ model User {
   email           String?       @unique
   address         String?
   age             Int?
-  gender          UserGender?  // ✅ Corrected enum reference
+  gender          UserGender?  
   adminId         String
   lastInteraction Int?          @default(0)
   createdAt       DateTime      @default(now()) 
@@ -57,15 +57,27 @@ model User {
 model Document {
   id         String   @id @default(uuid())
   userId     String
-  type       String
   name       String
+  year       String?     // Nullable, since not all documents require a year
   fileUrl    String
-  year       Int
   uploadedAt DateTime @default(now())
 
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  yearData   DocumentYearData[]  // ✅ Added missing back-reference for the relation
 
-  @@index([userId])
+  @@index([userId, year]) // Index to allow efficient querying
+}
+
+model DocumentYearData {
+  id          String   @id @default(uuid())
+  documentId  String
+  yearRange   String   // Example: "2021-2022", "2022-2023"
+  fileUrl     String   // Actual year-wise file URL
+  uploadedAt  DateTime @default(now())
+
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
 }
 
 model Superadmin {

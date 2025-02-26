@@ -3,6 +3,8 @@ const express = require("express");
 const cors = require("cors");
 const { PrismaClient } = require("@prisma/client"); 
 const prisma = new PrismaClient(); // Initialize Prisma
+const path = require("path");
+
 
 const adminRoutes = require("./routes/adminRoutes");
 const authRoutes= require("./routes/authRoutes");
@@ -48,6 +50,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api", superAdminRoutes);
 
+app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // Serve files
 
 
 

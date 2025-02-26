@@ -49,13 +49,24 @@ CREATE TABLE `User` (
 CREATE TABLE `Document` (
     `id` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NOT NULL,
-    `type` VARCHAR(191) NOT NULL,
     `name` VARCHAR(191) NOT NULL,
+    `year` VARCHAR(191) NULL,
     `fileUrl` VARCHAR(191) NOT NULL,
-    `year` INTEGER NOT NULL,
     `uploadedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
-    INDEX `Document_userId_idx`(`userId`),
+    INDEX `Document_userId_year_idx`(`userId`, `year`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `DocumentYearData` (
+    `id` VARCHAR(191) NOT NULL,
+    `documentId` VARCHAR(191) NOT NULL,
+    `yearRange` VARCHAR(191) NOT NULL,
+    `fileUrl` VARCHAR(191) NOT NULL,
+    `uploadedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `DocumentYearData_documentId_idx`(`documentId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -82,3 +93,6 @@ ALTER TABLE `User` ADD CONSTRAINT `User_adminId_fkey` FOREIGN KEY (`adminId`) RE
 
 -- AddForeignKey
 ALTER TABLE `Document` ADD CONSTRAINT `Document_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `DocumentYearData` ADD CONSTRAINT `DocumentYearData_documentId_fkey` FOREIGN KEY (`documentId`) REFERENCES `Document`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

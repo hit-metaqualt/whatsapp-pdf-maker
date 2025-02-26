@@ -90,111 +90,89 @@ const sendMessage = async (req, res) => {
 
 
 
+
+const axios = require("axios");
+
 const receiveMessage = async (req, res) => {
   try {
     const { Body, From } = req.body;
+    
     if (!Body || !From) {
       console.log("⚠️ Invalid message format received.");
       return res.status(400).send("Invalid message format.");
     }
 
     console.log(`📩 Incoming Message from ${From}: ${Body}`);
-
     const formattedNumber = From.replace("whatsapp:", "").replace("+91", "").trim();
-    console.log(`📞 Formatted Number: ${formattedNumber}`);
 
-    // Find user in the database
-    const user = await prisma.user.findUnique({
-      where: { whatsappNumber: formattedNumber }
-    });
-
+    const user = await prisma.user.findUnique({ where: { whatsappNumber: formattedNumber } });
     if (!user) {
-      console.log("❌ User not found in database.");
-      await sendMessageToUser(From, "❌ You are not registered. Please contact Admin.");
+      console.log("❌ User not found.");
+      await sendMessageToUser(From, "👋 You are not registered. Please contact Admin.");
       return res.status(400).send("User not found.");
     }
 
     console.log("🔍 User from DB:", user);
 
-    // Fetch user documents
-    const userDocuments = await prisma.document.findMany({
-      where: { userId: user.id }
-    });
+    let documents;
+    try {
+      documents = await prisma.document.findMany({ where: { userId: user.id } });
+    } catch (error) {
+      console.error("❌ Error fetching documents:", error);
+      await sendMessageToUser(From, "🚨 Technical issue occurred. Please try again later.");
+      return res.status(500).send("Error fetching documents.");
+    }
 
-    // If no documents are found, contact admin message
-    if (!userDocuments || userDocuments.length === 0) {
-      console.log("❌ No documents found for this user.");
-      await sendMessageToUser(From, "❌ No documents are linked to your account. Please contact Admin to add documents.");
+    if (!documents || documents.length === 0) {
+      console.log("❌ No documents found.");
+      await sendMessageToUser(From, "❌ No documents found. Please contact Admin.");
       return res.status(400).send("No documents found.");
     }
 
     let userMessage = Body.trim().toLowerCase();
-    console.log(`📩 Normalized User Message: ${userMessage}`);
+    console.log(`📩 User Message: ${userMessage}`);
 
-    const docTypes = {
-      "1": "pan",
-      "2": "adhar",
-      "3": "itr",
-      "pan": "pan",
-      "aadhar": "adhar",
-      "itr": "itr",
-      "4": "passport",
-      "5": "bankstatement",
-      "6": "payroll",
-      "7": "voterid",
-      "8": "drivinglicense"
-    };
+    const docMap = documents.reduce((acc, doc, index) => {
+      acc[(index + 1).toString()] = doc;
+      acc[doc.name.toLowerCase()] = doc;
+      return acc;
+    }, {});
 
-    // Check if the message is a valid document selection (either number or document name)
-    if (docTypes[userMessage]) {
-      const docType = docTypes[userMessage];
-      console.log(`🔍 Searching for document: ${docType} for user ${formattedNumber}`);
+    if (docMap[userMessage]) {
+      const document = docMap[userMessage];
+      const baseUrl = process.env.FILE_BASE_URL || "http://localhost:5000/uploads/";
+      let fileUrl = document.fileUrl.startsWith("http") ? document.fileUrl : `${baseUrl}${document.fileUrl}`;
 
-      await sendMessageToUser(From, `🔍 Searching for your ${docType.toUpperCase()} document...`);
-
-      // Search for the document by name (field `name` stores document type in the database)
-      const document = userDocuments.find(doc => doc.name.toLowerCase() === docType.toLowerCase());
-
-      if (!document) {
-        console.log(`❌ No ${docType.toUpperCase()} document found for user ${formattedNumber}`);
-        await sendMessageToUser(From, `❌ No ${docType.toUpperCase()} document found for your account.`);
-        return res.status(404).send(`${docType.toUpperCase()} document not found.`);
+      if (!(await isValidFileUrl(fileUrl))) {
+        console.error(`❌ Invalid or inaccessible media URL: ${fileUrl}`);
+        await sendMessageToUser(From, "❌ Error: Document is unavailable. Please contact Admin.");
+        return res.status(400).send("Invalid or inaccessible media URL.");
       }
 
-      console.log(`✅ Sending ${docType.toUpperCase()} document to ${From}`);
-      await sendMediaMessage(From, document.fileUrl, `${docType.toUpperCase()} Document.pdf`);
-
+      console.log(`✅ Sending ${document.name} document to ${From}`);
+      await sendMediaMessage(From, fileUrl, `${document.name} Document.pdf`);
       return res.status(200).send("PDF sent.");
     }
 
-    // If the message is not a valid document type, send a greeting and document list
-    console.log("❌ Invalid selection, sending greeting and document list.");
-    await sendMessageToUser(
-      From,
-      `👋 Hello *${user.username || 'there'}*! Welcome back!\n\n` +
-      `Please select a document type:\n` +
-      `1️⃣ PAN\n2️⃣ Aadhar\n3️⃣ ITR\n4️⃣ Passport\n5️⃣ Bank Statement\n6️⃣ Payroll\n7️⃣ Voter ID\n8️⃣ Driving License\n\n` +
-      `Reply with the number or document name.`
-    );
+    const docList = documents.map((doc, index) => `${index + 1}️⃣ ${doc.name}`).join("\n");
+    await sendMessageToUser(From, `📄 Select a document by number:\n${docList}`);
 
-    // Update last interaction time
     await prisma.user.update({
       where: { whatsappNumber: formattedNumber },
-      data: { lastInteraction: BigInt(Date.now()) }  // Convert to BigInt
+      data: { lastInteraction: Math.floor(Date.now() / 1000) },
     });
 
-    return res.status(200).send("Greeting and document list sent.");
-
+    return res.status(200).send("Document list sent.");
   } catch (error) {
-    console.error("❌ Error receiving message:", error);
-    res.status(500).json({ success: false, msg: "An error occurred while processing your request." });
+    console.error("❌ Unexpected Error:", error);
+    await sendMessageToUser(req.body?.From || "", "🚨 Technical issue occurred. Please try again later.");
+    res.status(500).json({ success: false, msg: "An error occurred." });
   }
 };
 
-
-
 const sendMessageToUser = async (to, message) => {
   try {
+    if (!to) throw new Error("Recipient number missing");
     await client.messages.create({
       from: process.env.TWILIO_WHATSAPP_NUMBER,
       to,
@@ -207,7 +185,11 @@ const sendMessageToUser = async (to, message) => {
 };
 
 const sendMediaMessage = async (to, mediaUrl, fileName) => {
+  console.log("🔗 Media URL:", mediaUrl);
   try {
+    if (!(await isValidFileUrl(mediaUrl))) {
+      throw new Error(`Invalid or inaccessible media URL: ${mediaUrl}`);
+    }
     await client.messages.create({
       from: process.env.TWILIO_WHATSAPP_NUMBER,
       to,
@@ -219,6 +201,24 @@ const sendMediaMessage = async (to, mediaUrl, fileName) => {
     console.error(`❌ Error sending document to ${to}:`, error);
   }
 };
+
+const isValidFileUrl = async (url) => {
+  try {
+    const response = await axios.head(url);
+    return response.status === 200;
+  } catch {
+    return false;
+  }
+};
+
+
+
+
+
+
+
+
+
 
 
 module.exports = {

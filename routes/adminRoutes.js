@@ -3,7 +3,7 @@ const { createAdminUser, adminLogin, adminLogout, getActiveSessions} = require("
 const { sendMessage, receiveMessage } = require("../controllers/sendMessageController");
 const { upload } = require("../middlewares/multerConfig");
 const { createUser, fetchAllUsers, fetchUserDocuments, editUser, deleteUser } = require("../controllers/userController");
-const { addDocumentForUser } = require("../controllers/documentController");
+const { addDocumentForUser, deleteDocumentForUser } = require("../controllers/documentController");
 const { authMiddleware } = require("../middlewares/authMiddleware");
 
 
@@ -24,6 +24,8 @@ router.delete("/user/delete/:userId",authMiddleware, deleteUser);
 
 
 router.post("/add-document",authMiddleware,upload.single("file"),addDocumentForUser);
+router.delete("/delete-document/:documentId", authMiddleware, deleteDocumentForUser);
+
 
 
 router.post("/whatsapp-webhook", sendMessage); 

@@ -1,22 +1,13 @@
 const { PrismaClient } = require("@prisma/client");
-const cloudinary = require("cloudinary").v2;
 const prisma = new PrismaClient();
 require("dotenv").config();
 
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+
 
 exports.addDocumentForUser = async (req, res) => {
   try {
     const { userId, name, year } = req.body;
-
-    console.log("Received file:", req.file);
-    console.log("Received body:", req.body);
 
     if (!userId || !name || !req.file) {
       return res.status(400).json({ success: false, message: "User ID, name, and file are required" });
@@ -84,4 +75,32 @@ exports.addDocumentForUser = async (req, res) => {
   }
 };
 
+
+exports.deleteDocumentForUser = async (req, res) => {
+  try {
+    const { documentId } = req.params;
+
+    if (!documentId) {
+      return res.status(400).json({ success: false, message: "Document ID is required" });
+    }
+
+    // Check if the document exists
+    const document = await prisma.document.findUnique({ where: { id: documentId } });
+
+    if (!document) {
+      return res.status(404).json({ success: false, message: "Document not found" });
+    }
+
+    // Delete related year-wise documents
+    await prisma.documentYearData.deleteMany({ where: { documentId } });
+
+    // Delete the main document
+    await prisma.document.delete({ where: { id: documentId } });
+
+    return res.status(200).json({ success: true, message: "Document deleted successfully" });
+  } catch (error) {
+    console.error("Delete Document Error:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+};
 

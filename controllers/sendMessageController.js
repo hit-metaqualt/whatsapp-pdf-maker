@@ -140,7 +140,8 @@ const receiveMessage = async (req, res) => {
 
     if (docMap[userMessage]) {
       const document = docMap[userMessage];
-      const baseUrl = process.env.FILE_BASE_URL || "http://localhost:5000/uploads/";
+      const baseUrl = process.env.FILE_BASE_URL  || "http://192.168.1.95:5000/uploads/";
+      // "http://localhost:5000/uploads/"
       let fileUrl = document.fileUrl.startsWith("http") ? document.fileUrl : `${baseUrl}${document.fileUrl}`;
 
       if (!(await isValidFileUrl(fileUrl))) {
@@ -193,7 +194,8 @@ const sendMediaMessage = async (to, mediaUrl, fileName) => {
     await client.messages.create({
       from: process.env.TWILIO_WHATSAPP_NUMBER,
       to,
-      mediaUrl: [mediaUrl],
+      // mediaUrl: [mediaUrl],
+      mediaUrl: ['https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'],
       body: `📄 Here is your requested document: ${fileName}`,
     });
     console.log(`📩 Sent document to ${to}`);

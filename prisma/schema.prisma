@@ -45,7 +45,7 @@ model User {
   age             Int?
   gender          UserGender?  
   adminId         String
-  lastInteraction Int?          @default(0)
+  lastInteraction String?          @default("0")
   createdAt       DateTime      @default(now()) 
 
   documents       Document[]

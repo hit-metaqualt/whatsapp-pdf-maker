@@ -1,6 +1,8 @@
 require("dotenv").config();
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const axios = require("axios");
+
 
 const twilio = require("twilio");
 
@@ -91,12 +93,9 @@ const sendMessage = async (req, res) => {
 
 
 
-const axios = require("axios");
-
 const receiveMessage = async (req, res) => {
   try {
     const { Body, From } = req.body;
-    
     if (!Body || !From) {
       console.log("⚠️ Invalid message format received.");
       return res.status(400).send("Invalid message format.");
@@ -113,36 +112,36 @@ const receiveMessage = async (req, res) => {
     }
 
     console.log("🔍 User from DB:", user);
-
-    let documents;
-    try {
-      documents = await prisma.document.findMany({ where: { userId: user.id } });
-    } catch (error) {
-      console.error("❌ Error fetching documents:", error);
-      await sendMessageToUser(From, "🚨 Technical issue occurred. Please try again later.");
-      return res.status(500).send("Error fetching documents.");
-    }
-
-    if (!documents || documents.length === 0) {
-      console.log("❌ No documents found.");
-      await sendMessageToUser(From, "❌ No documents found. Please contact Admin.");
-      return res.status(400).send("No documents found.");
-    }
+    const username = user.name || "User"; // Use the user's name or fallback to "User"
+    await sendMessageToUser(From, `👋 Hi, ${username}! Welcome back!`);
 
     let userMessage = Body.trim().toLowerCase();
     console.log(`📩 User Message: ${userMessage}`);
 
-    const docMap = documents.reduce((acc, doc, index) => {
-      acc[(index + 1).toString()] = doc;
-      acc[doc.name.toLowerCase()] = doc;
-      return acc;
-    }, {});
+    // Send a "Searching" message to the user while the bot processes their request
+    await sendMessageToUser(From, "🔍 Searching for your data, please wait...");
 
-    if (docMap[userMessage]) {
-      const document = docMap[userMessage];
-      const baseUrl = process.env.FILE_BASE_URL  || "http://192.168.1.95:5000/uploads/";
-      // "http://localhost:5000/uploads/"
-      let fileUrl = document.fileUrl.startsWith("http") ? document.fileUrl : `${baseUrl}${document.fileUrl}`;
+    if (!isNaN(userMessage) && user.lastInteraction !== "0") {
+      return await handleYearSelection(user, userMessage, From, formattedNumber, res);
+    }
+
+    return await handleDocumentSelection(user, userMessage, From, formattedNumber, res);
+  } catch (error) {
+    console.error("❌ Unexpected Error:", error);
+    await sendMessageToUser(req.body?.From || "", "🚨 Technical issue occurred. Please try again later.");
+    return res.status(500).json({ success: false, msg: "An error occurred." });
+  }
+};
+
+const handleYearSelection = async (user, userMessage, From, formattedNumber, res) => {
+  const documentId = user.lastInteraction;
+  const yearwiseData = await prisma.documentYearData.findMany({ where: { documentId } });
+
+  if (yearwiseData.length > 0) {
+    const index = parseInt(userMessage, 10) - 1;
+    if (index >= 0 && index < yearwiseData.length) {
+      const selectedYearData = yearwiseData[index];
+      const fileUrl = getFileUrl(selectedYearData.fileUrl);
 
       if (!(await isValidFileUrl(fileUrl))) {
         console.error(`❌ Invalid or inaccessible media URL: ${fileUrl}`);
@@ -150,35 +149,74 @@ const receiveMessage = async (req, res) => {
         return res.status(400).send("Invalid or inaccessible media URL.");
       }
 
-      console.log(`✅ Sending ${document.name} document to ${From}`);
-      await sendMediaMessage(From, fileUrl, `${document.name} Document.pdf`);
-      return res.status(200).send("PDF sent.");
+      console.log(`✅ Sending year-wise document (${selectedYearData.yearRange}) to ${From}`);
+      await sendMediaMessage(From, fileUrl, `${selectedYearData.yearRange} Document.pdf`);
+    } else {
+      await sendMessageToUser(From, "❌ Invalid selection. Please choose a valid year.");
     }
-
-    const docList = documents.map((doc, index) => `${index + 1}️⃣ ${doc.name}`).join("\n");
-    await sendMessageToUser(From, `📄 Select a document by number:\n${docList}`);
-
-    await prisma.user.update({
-      where: { whatsappNumber: formattedNumber },
-      data: { lastInteraction: Math.floor(Date.now() / 1000) },
-    });
-
-    return res.status(200).send("Document list sent.");
-  } catch (error) {
-    console.error("❌ Unexpected Error:", error);
-    await sendMessageToUser(req.body?.From || "", "🚨 Technical issue occurred. Please try again later.");
-    res.status(500).json({ success: false, msg: "An error occurred." });
+  } else {
+    console.log("ℹ️ No year-wise data available. Sending document directly.");
+    await sendDirectDocument(From, documentId);
   }
+
+  await prisma.user.update({ where: { whatsappNumber: formattedNumber }, data: { lastInteraction: "0" } });
+  return res.status(200).send("Document sent.");
+};
+
+const handleDocumentSelection = async (user, userMessage, From, formattedNumber, res) => {
+  const documents = await prisma.document.findMany({ where: { userId: user.id } });
+  if (!documents.length) {
+    console.log("❌ No documents found.");
+    await sendMessageToUser(From, "❌ No documents found. Please contact Admin.");
+    return res.status(400).send("No documents found.");
+  }
+
+  const docMap = documents.reduce((acc, doc, index) => {
+    acc[doc.name.toLowerCase()] = { id: doc.id, name: doc.name };
+    acc[index + 1] = { id: doc.id, name: doc.name };
+    return acc;
+  }, {});
+
+  if (!isNaN(userMessage) && docMap[parseInt(userMessage, 10)]) {
+    const document = docMap[parseInt(userMessage, 10)];
+    const yearwiseData = await prisma.documentYearData.findMany({ where: { documentId: document.id } });
+
+    if (yearwiseData.length > 0) {
+      const yearOptions = yearwiseData.map((data, index) => `${index + 1}️⃣ ${data.yearRange}`).join("\n");
+      await sendMessageToUser(From, `📅 Select a year for the document:\n${yearOptions}`);
+      await prisma.user.update({ where: { whatsappNumber: formattedNumber }, data: { lastInteraction: document.id } });
+    } else {
+      await sendDirectDocument(From, document.id);
+    }
+    return res.status(200).send("Document processed.");
+  }
+
+  const docList = documents.map((doc, index) => `${index + 1}️⃣ ${doc.name}`).join("\n");
+  await sendMessageToUser(From, `📄 Select a document by number:\n${docList}`);
+  await prisma.user.update({ where: { whatsappNumber: formattedNumber }, data: { lastInteraction: "0" } });
+  return res.status(200).send("Document list sent.");
+};
+
+const sendDirectDocument = async (to, documentId) => {
+  const document = await prisma.document.findUnique({ where: { id: documentId } });
+  if (!document) return await sendMessageToUser(to, "❌ Document not found. Please contact Admin.");
+
+  const fileUrl = getFileUrl(document.fileUrl);
+  if (!(await isValidFileUrl(fileUrl))) return await sendMessageToUser(to, "❌ Error: Document is unavailable. Please contact Admin.");
+
+  console.log(`✅ Sending ${document.name} document to ${to}`);
+  await sendMediaMessage(to, fileUrl, `${document.name} Document.pdf`);
+};
+
+const getFileUrl = (filePath) => {
+  const baseUrl = process.env.FILE_BASE_URL || "http://192.168.1.95:5000/uploads/";
+  return filePath.startsWith("http") ? filePath : `${baseUrl}${filePath}`;
 };
 
 const sendMessageToUser = async (to, message) => {
+  if (!to) return;
   try {
-    if (!to) throw new Error("Recipient number missing");
-    await client.messages.create({
-      from: process.env.TWILIO_WHATSAPP_NUMBER,
-      to,
-      body: message,
-    });
+    await client.messages.create({ from: process.env.TWILIO_WHATSAPP_NUMBER, to, body: message });
     console.log(`📩 Sent message to ${to}`);
   } catch (error) {
     console.error(`❌ Error sending message to ${to}:`, error);
@@ -188,9 +226,7 @@ const sendMessageToUser = async (to, message) => {
 const sendMediaMessage = async (to, mediaUrl, fileName) => {
   console.log("🔗 Media URL:", mediaUrl);
   try {
-    if (!(await isValidFileUrl(mediaUrl))) {
-      throw new Error(`Invalid or inaccessible media URL: ${mediaUrl}`);
-    }
+    if (!(await isValidFileUrl(mediaUrl))) throw new Error(`Invalid media URL: ${mediaUrl}`);
     await client.messages.create({
       from: process.env.TWILIO_WHATSAPP_NUMBER,
       to,

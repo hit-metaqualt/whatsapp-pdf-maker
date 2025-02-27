@@ -107,95 +107,120 @@ const receiveMessage = async (req, res) => {
     const user = await prisma.user.findUnique({ where: { whatsappNumber: formattedNumber } });
     if (!user) {
       console.log("❌ User not found.");
-      await sendMessageToUser(From, "👋 You are not registered. Please contact Admin.");
+      await sendMessageToUser(From, "👋 Hello! You are not registered in our system. Kindly reach out to Admin for further assistance.");
       return res.status(400).send("User not found.");
     }
 
     console.log("🔍 User from DB:", user);
-    const username = user.name || "User"; // Use the user's name or fallback to "User"
-    await sendMessageToUser(From, `👋 Hi, ${username}! Welcome back!`);
-
     let userMessage = Body.trim().toLowerCase();
     console.log(`📩 User Message: ${userMessage}`);
 
-    // Send a "Searching" message to the user while the bot processes their request
-    await sendMessageToUser(From, "🔍 Searching for your data, please wait...");
+    // Send Welcome Message only if lastInteraction is "0" and userMessage is not a number
+    if (user.lastInteraction === "0" && isNaN(userMessage)) {
+      await sendMessageToUser(From, `👋 Welcome to ${user?.username || "User"}! How can we assist you today?`);
+      return await handleDocumentSelection(user, userMessage, From, formattedNumber, res);
+    }
 
+    // If user selects a number from document list and interaction is not "0"
     if (!isNaN(userMessage) && user.lastInteraction !== "0") {
+      await sendMessageToUser(From, "🔍 Your data is being searched, please wait...");
       return await handleYearSelection(user, userMessage, From, formattedNumber, res);
     }
 
+    // If invalid input comes during document selection process
+    if (user.lastInteraction !== "0") {
+      await sendMessageToUser(From, "⚠️ Please select a proper valid number from the below document list.");
+      return await handleDocumentSelection(user, "showList", From, formattedNumber, res);
+    }
+
+    // Default Document Selection Flow
+    await sendMessageToUser(From, "🔍 Your data is being searched, please wait...");
     return await handleDocumentSelection(user, userMessage, From, formattedNumber, res);
   } catch (error) {
     console.error("❌ Unexpected Error:", error);
     await sendMessageToUser(req.body?.From || "", "🚨 Technical issue occurred. Please try again later.");
+    await sendMessageToUser(req.body?.From || "", "🔁 If the issue persists, please reach out to Admin.");
     return res.status(500).json({ success: false, msg: "An error occurred." });
   }
 };
 
+
+
 const handleYearSelection = async (user, userMessage, From, formattedNumber, res) => {
-  const documentId = user.lastInteraction;
-  const yearwiseData = await prisma.documentYearData.findMany({ where: { documentId } });
+  try {
+    const documentId = user.lastInteraction;
+    const yearwiseData = await prisma.documentYearData.findMany({ where: { documentId } });
 
-  if (yearwiseData.length > 0) {
-    const index = parseInt(userMessage, 10) - 1;
-    if (index >= 0 && index < yearwiseData.length) {
-      const selectedYearData = yearwiseData[index];
-      const fileUrl = getFileUrl(selectedYearData.fileUrl);
+    if (yearwiseData.length > 0) {
+      const index = parseInt(userMessage, 10) - 1;
+      if (index >= 0 && index < yearwiseData.length) {
+        const selectedYearData = yearwiseData[index];
+        const fileUrl = getFileUrl(selectedYearData.fileUrl);
 
-      if (!(await isValidFileUrl(fileUrl))) {
-        console.error(`❌ Invalid or inaccessible media URL: ${fileUrl}`);
-        await sendMessageToUser(From, "❌ Error: Document is unavailable. Please contact Admin.");
-        return res.status(400).send("Invalid or inaccessible media URL.");
+        if (!(await isValidFileUrl(fileUrl))) {
+          console.error(`❌ Invalid or inaccessible media URL: ${fileUrl}`);
+          await sendMessageToUser(From, "❌ Error: Document is unavailable at the moment. Please contact Admin.");
+          return res.status(400).send("Invalid or inaccessible media URL.");
+        }
+
+        console.log(`✅ Sending year-wise document (${selectedYearData.yearRange}) to ${From}`);
+        await sendMediaMessage(From, fileUrl, `${selectedYearData.yearRange} Document.pdf`);
+      } else {
+        await sendMessageToUser(From, "❌ Invalid selection. Please select a valid year.");
       }
-
-      console.log(`✅ Sending year-wise document (${selectedYearData.yearRange}) to ${From}`);
-      await sendMediaMessage(From, fileUrl, `${selectedYearData.yearRange} Document.pdf`);
     } else {
-      await sendMessageToUser(From, "❌ Invalid selection. Please choose a valid year.");
+      console.log("ℹ️ No year-wise data available. Sending document directly.");
+      await sendDirectDocument(From, documentId);
     }
-  } else {
-    console.log("ℹ️ No year-wise data available. Sending document directly.");
-    await sendDirectDocument(From, documentId);
-  }
 
-  await prisma.user.update({ where: { whatsappNumber: formattedNumber }, data: { lastInteraction: "0" } });
-  return res.status(200).send("Document sent.");
+    await prisma.user.update({ where: { whatsappNumber: formattedNumber }, data: { lastInteraction: "0" } });
+    return res.status(200).send("Document sent.");
+  } catch (error) {
+    console.error("❌ Error in year selection:", error);
+    await sendMessageToUser(From, "🚨 Technical issue occurred. Please try again later.");
+    return res.status(500).send("Error occurred while processing year selection.");
+  }
 };
 
 const handleDocumentSelection = async (user, userMessage, From, formattedNumber, res) => {
-  const documents = await prisma.document.findMany({ where: { userId: user.id } });
-  if (!documents.length) {
-    console.log("❌ No documents found.");
-    await sendMessageToUser(From, "❌ No documents found. Please contact Admin.");
-    return res.status(400).send("No documents found.");
-  }
-
-  const docMap = documents.reduce((acc, doc, index) => {
-    acc[doc.name.toLowerCase()] = { id: doc.id, name: doc.name };
-    acc[index + 1] = { id: doc.id, name: doc.name };
-    return acc;
-  }, {});
-
-  if (!isNaN(userMessage) && docMap[parseInt(userMessage, 10)]) {
-    const document = docMap[parseInt(userMessage, 10)];
-    const yearwiseData = await prisma.documentYearData.findMany({ where: { documentId: document.id } });
-
-    if (yearwiseData.length > 0) {
-      const yearOptions = yearwiseData.map((data, index) => `${index + 1}️⃣ ${data.yearRange}`).join("\n");
-      await sendMessageToUser(From, `📅 Select a year for the document:\n${yearOptions}`);
-      await prisma.user.update({ where: { whatsappNumber: formattedNumber }, data: { lastInteraction: document.id } });
-    } else {
-      await sendDirectDocument(From, document.id);
+  try {
+    const documents = await prisma.document.findMany({ where: { userId: user.id } });
+    if (!documents.length) {
+      await sendMessageToUser(From, "❌ No documents found in your account. Please contact Admin.");
+      return res.status(400).send("No documents found.");
     }
-    return res.status(200).send("Document processed.");
-  }
 
-  const docList = documents.map((doc, index) => `${index + 1}️⃣ ${doc.name}`).join("\n");
-  await sendMessageToUser(From, `📄 Select a document by number:\n${docList}`);
-  await prisma.user.update({ where: { whatsappNumber: formattedNumber }, data: { lastInteraction: "0" } });
-  return res.status(200).send("Document list sent.");
+    const docMap = documents.reduce((acc, doc, index) => {
+      acc[doc.name.toLowerCase()] = { id: doc.id, name: doc.name };
+      acc[index + 1] = { id: doc.id, name: doc.name };
+      return acc;
+    }, {});
+
+    if (!isNaN(userMessage) && docMap[parseInt(userMessage, 10)]) {
+      const document = docMap[parseInt(userMessage, 10)];
+      const yearwiseData = await prisma.documentYearData.findMany({ where: { documentId: document.id } });
+
+      if (yearwiseData.length > 0) {
+        const yearOptions = yearwiseData.map((data, index) => `${index + 1}️⃣ ${data.yearRange}`).join("\n");
+        await sendMessageToUser(From, `📅 Please select a year for the document:\n${yearOptions}`);
+        await prisma.user.update({ where: { whatsappNumber: formattedNumber }, data: { lastInteraction: document.id } });
+      } else {
+        await sendDirectDocument(From, document.id);
+      }
+      return res.status(200).send("Document processed.");
+    }
+
+    const docList = documents.map((doc, index) => `${index + 1}️⃣ ${doc.name}`).join("\n");
+    await sendMessageToUser(From, `📄 Kindly select a document by its corresponding number:\n${docList}`);
+    await prisma.user.update({ where: { whatsappNumber: formattedNumber }, data: { lastInteraction: "0" } });
+    return res.status(200).send("Document list sent.");
+  } catch (error) {
+    console.error("❌ Error in document selection:", error);
+    await sendMessageToUser(From, "🚨 Technical issue occurred. Please try again later.");
+    return res.status(500).send("Error occurred while processing document selection.");
+  }
 };
+
 
 const sendDirectDocument = async (to, documentId) => {
   const document = await prisma.document.findUnique({ where: { id: documentId } });

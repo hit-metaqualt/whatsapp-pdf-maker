@@ -25,6 +25,7 @@ const createUser = async (req, res) => {
     if (existingUser) {
       return res.status(409).json({ error: "User with this WhatsApp number already exists." });
     }
+    
 
     // 🔹 Create a new user
     const user = await prisma.User.create({

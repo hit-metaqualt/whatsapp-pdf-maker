@@ -18,7 +18,7 @@ const createUser = async (req, res) => {
     const validGender = gender ? gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase() : null;
 
     // 🔹 Check if user already exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.User.findUnique({
       where: { whatsappNumber },
     });
 
@@ -27,7 +27,7 @@ const createUser = async (req, res) => {
     }
 
     // 🔹 Create a new user
-    const user = await prisma.user.create({
+    const user = await prisma.User.create({
       data: {
         whatsappNumber,
         username,

@@ -18,7 +18,7 @@ const createSuperAdmin = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Ensure the model name matches exactly with your Prisma schema
+    // Fix model name to SuperAdmin (with capital S)
     const superAdmin = await prisma.superadmin.create({
       data: { username, password: hashedPassword },
     });
@@ -29,6 +29,7 @@ const createSuperAdmin = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
 
 
 // ✅ Fetch All Admins Under SuperAdmin

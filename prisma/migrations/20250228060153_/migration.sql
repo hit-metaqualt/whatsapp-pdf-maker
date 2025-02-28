@@ -36,7 +36,7 @@ CREATE TABLE `User` (
     `age` INTEGER NULL,
     `gender` ENUM('Male', 'Female', 'Other') NULL,
     `adminId` VARCHAR(191) NOT NULL,
-    `lastInteraction` INTEGER NULL DEFAULT 0,
+    `lastInteraction` VARCHAR(191) NULL DEFAULT '0',
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     UNIQUE INDEX `User_whatsappNumber_key`(`whatsappNumber`),

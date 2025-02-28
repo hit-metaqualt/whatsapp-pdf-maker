@@ -7,23 +7,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Admin {
-  id             String       @id @default(uuid())
-  username       String       @unique
+model superadmin {
+  id         String    @id @default(uuid())
+  username   String    @unique
+  password   String
+  maxDevices Int       @default(1)
+  createdAt  DateTime  @default(now())
+
+  admins     admin[]
+}
+
+model admin {
+  id             String        @id @default(uuid())
+  username       String        @unique
   password       String
   superAdminId   String
-  allowedDevices Int          @default(1)
-  createdAt      DateTime     @default(now()) 
+  allowedDevices Int           @default(1)
+  createdAt      DateTime      @default(now())
 
-  superadmin     Superadmin   @relation(fields: [superAdminId], references: [id], onDelete: Cascade)
-  devicesession  DeviceSession[]
-  users          User[]
+  superadmin     superadmin    @relation(fields: [superAdminId], references: [id], onDelete: Cascade)
+  devicesession  deviceSession[]
+  users          user[]
 
   @@index([superAdminId])
 }
 
-model DeviceSession {
-  id         String   @id @default(uuid()) 
+model deviceSession {
+  id         String   @id @default(uuid())
   adminId    String
   deviceInfo String
   ipAddress  String
@@ -31,66 +41,56 @@ model DeviceSession {
   logoutTime DateTime?
   isActive   Boolean  @default(true)
 
-  admin      Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  admin      admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   @@index([adminId])
 }
 
-model User {
-  id              String        @id @default(uuid())
-  whatsappNumber  String        @unique
+model user {
+  id              String       @id @default(uuid())
+  whatsappNumber  String       @unique
   username        String?
-  email           String?       @unique
+  email           String?      @unique
   address         String?
   age             Int?
-  gender          UserGender?  
+  gender          userGender?
   adminId         String
-  lastInteraction String?          @default("0")
-  createdAt       DateTime      @default(now()) 
+  lastInteraction String?      @default("0")
+  createdAt       DateTime     @default(now())
 
-  documents       Document[]
-  admin           Admin         @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  documents       document[]
+  admin           admin        @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   @@index([adminId])
 }
 
-model Document {
-  id         String   @id @default(uuid())
+model document {
+  id         String       @id @default(uuid())
   userId     String
   name       String
-  year       String?     // Nullable, since not all documents require a year
+  year       String?
   fileUrl    String
-  uploadedAt DateTime @default(now())
+  uploadedAt DateTime     @default(now())
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  yearData   DocumentYearData[]  // ✅ Added missing back-reference for the relation
+  user       user         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  yearData   documentYearData[]
 
-  @@index([userId, year]) // Index to allow efficient querying
+  @@index([userId, year])
 }
 
-model DocumentYearData {
+model documentYearData {
   id          String   @id @default(uuid())
   documentId  String
   yearRange   String   // Example: "2021-2022", "2022-2023"
   fileUrl     String   // Actual year-wise file URL
   uploadedAt  DateTime @default(now())
 
-  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document    document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([documentId])
 }
 
-model Superadmin {
-  id         String   @id @default(uuid())
-  username   String   @unique
-  password   String
-  maxDevices Int      @default(1)
-  createdAt  DateTime @default(now())
-
-  admins     Admin[]
-}
-
-enum UserGender {
+enum userGender {
   Male
   Female
   Other

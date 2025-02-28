@@ -19,7 +19,7 @@ const createSuperAdmin = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Fix model name to SuperAdmin (with capital S)
-    const superAdmin = await prisma.superAdmin.create({
+    const superAdmin = await prisma.superadmin.create({
       data: { username, password: hashedPassword },
     });
 
